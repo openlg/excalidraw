@@ -121,7 +121,7 @@ export const FONT_FAMILY = {
  * ```
  */
 export const FONT_FAMILY_ADDITIONAL = {
-  // Virgil: ["XinYeNianTi"],
+  Virgil: ["XinYeNianTi"],
 };
 
 export const THEME = {
