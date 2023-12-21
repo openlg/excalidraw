@@ -252,7 +252,7 @@ export const Socials = () => (
     </DropdownMenuItemLink>
     <DropdownMenuItemLink
       icon={DiscordIcon}
-      href="https://discord.gg/UexuTaE"
+      href="https://discord.gg/sbwSCXe5"
       aria-label="Discord"
     >
       Discord

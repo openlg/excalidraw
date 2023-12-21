@@ -4,6 +4,7 @@ import svgrPlugin from "vite-plugin-svgr";
 import { ViteEjsPlugin } from "vite-plugin-ejs";
 import { VitePWA } from "vite-plugin-pwa";
 import checker from "vite-plugin-checker";
+import transform from "../scripts/file-content-transform";
 
 // To load .env.local variables
 const envVars = loadEnv("", `../`);
@@ -40,6 +41,13 @@ export default defineConfig({
     sourcemap: true,
   },
   plugins: [
+    {
+      name: "vite-plugin-replace",
+      transform(code, id) {
+        return transform(code, id);
+      },
+      enforce: "pre",
+    },
     react(),
     checker({
       typescript: true,
@@ -100,10 +108,10 @@ export default defineConfig({
         ],
       },
       manifest: {
-        short_name: "Excalidraw",
-        name: "Excalidraw",
+        short_name: "Ideadraw",
+        name: "Ideadraw",
         description:
-          "Excalidraw is a whiteboard tool that lets you easily sketch diagrams that have a hand-drawn feel to them.",
+          "Ideadraw is a whiteboard tool that lets you easily sketch diagrams that have a hand-drawn feel to them.",
         icons: [
           {
             src: "android-chrome-192x192.png",
@@ -134,7 +142,7 @@ export default defineConfig({
           {
             action: "/",
             accept: {
-              "application/vnd.excalidraw+json": [".excalidraw"],
+              "application/vnd.ideadraw+json": [".ideadraw"],
             },
           },
         ],
@@ -147,9 +155,9 @@ export default defineConfig({
               {
                 name: "file",
                 accept: [
-                  "application/vnd.excalidraw+json",
+                  "application/vnd.ideadraw+json",
                   "application/json",
-                  ".excalidraw",
+                  ".ideadraw",
                 ],
               },
             ],
