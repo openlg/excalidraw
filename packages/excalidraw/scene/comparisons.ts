@@ -1,9 +1,9 @@
 import { isIframeElement } from "../element/typeChecks";
-import {
+import type {
   ExcalidrawIframeElement,
   NonDeletedExcalidrawElement,
 } from "../element/types";
-import { ElementOrToolType } from "../types";
+import type { ElementOrToolType } from "../types";
 
 export const hasBackground = (type: ElementOrToolType) =>
   type === "rectangle" ||
@@ -42,7 +42,8 @@ export const canChangeRoundness = (type: ElementOrToolType) =>
   type === "embeddable" ||
   type === "arrow" ||
   type === "line" ||
-  type === "diamond";
+  type === "diamond" ||
+  type === "image";
 
 export const canHaveArrowheads = (type: ElementOrToolType) => type === "arrow";
 

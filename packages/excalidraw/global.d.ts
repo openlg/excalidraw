@@ -1,16 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-interface Document {
-  fonts?: {
-    ready?: Promise<void>;
-    check?: (font: string, text?: string) => boolean;
-    load?: (font: string, text?: string) => Promise<FontFace[]>;
-    addEventListener?(
-      type: "loading" | "loadingdone" | "loadingerror",
-      listener: (this: Document, ev: Event) => any,
-    ): void;
-  };
-}
-
 interface Window {
   ClipboardItem: any;
   __EXCALIDRAW_SHA__: string | undefined;
@@ -84,7 +71,7 @@ interface Uint8Array {
 
 // https://github.com/nodeca/image-blob-reduce/issues/23#issuecomment-783271848
 declare module "image-blob-reduce" {
-  import { PicaResizeOptions, Pica } from "pica";
+  import type { PicaResizeOptions, Pica } from "pica";
   namespace ImageBlobReduce {
     interface ImageBlobReduce {
       toBlob(file: File, options: ImageBlobReduceOptions): Promise<Blob>;

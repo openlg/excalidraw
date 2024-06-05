@@ -1,5 +1,5 @@
-import React from "react";
-import {
+import type React from "react";
+import type {
   PointerType,
   ExcalidrawLinearElement,
   NonDeletedExcalidrawElement,
@@ -19,25 +19,28 @@ import {
   ExcalidrawMagicFrameElement,
   ExcalidrawFrameLikeElement,
   ExcalidrawElementType,
+  ExcalidrawIframeLikeElement,
+  OrderedExcalidrawElement,
 } from "./element/types";
-import { Action } from "./actions/types";
-import { Point as RoughPoint } from "roughjs/bin/geometry";
-import { LinearElementEditor } from "./element/linearElementEditor";
-import { SuggestedBinding } from "./element/binding";
-import { ImportedDataState } from "./data/types";
+import type { Action } from "./actions/types";
+import type { Point as RoughPoint } from "roughjs/bin/geometry";
+import type { LinearElementEditor } from "./element/linearElementEditor";
+import type { SuggestedBinding } from "./element/binding";
+import type { ImportedDataState } from "./data/types";
 import type App from "./components/App";
 import type { throttleRAF } from "./utils";
-import { Spreadsheet } from "./charts";
-import { Language } from "./i18n";
-import { ClipboardData } from "./clipboard";
-import { isOverScrollBars } from "./scene";
-import { MaybeTransformHandleType } from "./element/transformHandles";
-import Library from "./data/library";
+import type { Spreadsheet } from "./charts";
+import type { Language } from "./i18n";
+import type { ClipboardData } from "./clipboard";
+import type { isOverScrollBars } from "./scene/scrollbars";
+import type { MaybeTransformHandleType } from "./element/transformHandles";
+import type Library from "./data/library";
 import type { FileSystemHandle } from "./data/filesystem";
 import type { IMAGE_MIME_TYPES, MIME_TYPES } from "./constants";
-import { ContextMenuItems } from "./components/ContextMenu";
-import { SnapLine } from "./snapping";
-import { Merge, ValueOf } from "./utility-types";
+import type { ContextMenuItems } from "./components/ContextMenu";
+import type { SnapLine } from "./snapping";
+import type { Merge, MaybePromise, ValueOf } from "./utility-types";
+import type { StoreActionType } from "./store";
 
 export type Point = Readonly<RoughPoint>;
 
@@ -60,12 +63,28 @@ export type Collaborator = Readonly<{
   id?: string;
   socketId?: SocketId;
   isCurrentUser?: boolean;
+  isInCall?: boolean;
+  isSpeaking?: boolean;
+  isMuted?: boolean;
 }>;
 
 export type CollaboratorPointer = {
   x: number;
   y: number;
   tool: "pointer" | "laser";
+  /**
+   * Whether to render cursor + username. Useful when you only want to render
+   * laser trail.
+   *
+   * @default true
+   */
+  renderCursor?: boolean;
+  /**
+   * Explicit laser color.
+   *
+   * @default string collaborator's cursor color
+   */
+  laserColor?: string;
 };
 
 export type DataURL = string & { _brand: "DataURL" };
@@ -178,8 +197,27 @@ export type InteractiveCanvasAppState = Readonly<
     // SnapLines
     snapLines: AppState["snapLines"];
     zenModeEnabled: AppState["zenModeEnabled"];
+    editingElement: AppState["editingElement"];
   }
 >;
+
+export type ObservedAppState = ObservedStandaloneAppState &
+  ObservedElementsAppState;
+
+export type ObservedStandaloneAppState = {
+  name: AppState["name"];
+  viewBackgroundColor: AppState["viewBackgroundColor"];
+};
+
+export type ObservedElementsAppState = {
+  editingGroupId: AppState["editingGroupId"];
+  selectedElementIds: AppState["selectedElementIds"];
+  selectedGroupIds: AppState["selectedGroupIds"];
+  // Avoiding storing whole instance, as it could lead into state incosistencies, empty undos/redos and etc.
+  editingLinearElementId: LinearElementEditor["elementId"] | null;
+  // Right now it's coupled to `editingLinearElement`, ideally it should not be really needed as we already have selectedElementIds & editingLinearElementId
+  selectedLinearElementId: LinearElementEditor["elementId"] | null;
+};
 
 export interface AppState {
   contextMenu: {
@@ -246,7 +284,7 @@ export interface AppState {
   scrollY: number;
   cursorButton: "up" | "down";
   scrolledOutside: boolean;
-  name: string;
+  name: string | null;
   isResizing: boolean;
   isRotating: boolean;
   zoom: Zoom;
@@ -264,7 +302,8 @@ export interface AppState {
           | "settings"; // when AI settings dialog is explicitly invoked
         tab: "text-to-diagram" | "diagram-to-code";
       }
-    | { name: "ttd"; tab: "text-to-diagram" | "mermaid" };
+    | { name: "ttd"; tab: "text-to-diagram" | "mermaid" }
+    | { name: "commandPalette" };
   /**
    * Reflects user preference for whether the default sidebar should be docked.
    *
@@ -318,9 +357,9 @@ export interface AppState {
     y: number;
   } | null;
   objectsSnapModeEnabled: boolean;
-  /** the user's clientId & username who is being followed on the canvas */
+  /** the user's socket id & username who is being followed on the canvas */
   userToFollow: UserToFollow | null;
-  /** the clientIds of the users following the current user */
+  /** the socket ids of the users following the current user */
   followedBy: Set<SocketId>;
 }
 
@@ -379,21 +418,14 @@ export type LibraryItems_anyVersion = LibraryItems | LibraryItems_v1;
 export type LibraryItemsSource =
   | ((
       currentLibraryItems: LibraryItems,
-    ) =>
-      | Blob
-      | LibraryItems_anyVersion
-      | Promise<LibraryItems_anyVersion | Blob>)
-  | Blob
-  | LibraryItems_anyVersion
-  | Promise<LibraryItems_anyVersion | Blob>;
+    ) => MaybePromise<LibraryItems_anyVersion | Blob>)
+  | MaybePromise<LibraryItems_anyVersion | Blob>;
 // -----------------------------------------------------------------------------
 
 export type ExcalidrawInitialDataState = Merge<
   ImportedDataState,
   {
-    libraryItems?:
-      | Required<ImportedDataState>["libraryItems"]
-      | Promise<Required<ImportedDataState>["libraryItems"]>;
+    libraryItems?: MaybePromise<Required<ImportedDataState>["libraryItems"]>;
   }
 >;
 
@@ -404,14 +436,11 @@ export type OnUserFollowedPayload = {
 
 export interface ExcalidrawProps {
   onChange?: (
-    elements: readonly ExcalidrawElement[],
+    elements: readonly OrderedExcalidrawElement[],
     appState: AppState,
     files: BinaryFiles,
   ) => void;
-  initialData?:
-    | ExcalidrawInitialDataState
-    | null
-    | Promise<ExcalidrawInitialDataState | null>;
+  initialData?: MaybePromise<ExcalidrawInitialDataState | null>;
   excalidrawAPI?: (api: ExcalidrawImperativeAPI) => void;
   isCollaborating?: boolean;
   onPointerUpdate?: (payload: {
@@ -434,6 +463,7 @@ export interface ExcalidrawProps {
   objectsSnapModeEnabled?: boolean;
   libraryReturnUrl?: string;
   theme?: Theme;
+  // @TODO come with better API before v0.18.0
   name?: string;
   renderCustomStats?: (
     elements: readonly NonDeletedExcalidrawElement[],
@@ -452,6 +482,10 @@ export interface ExcalidrawProps {
     }>,
   ) => void;
   onPointerDown?: (
+    activeTool: AppState["activeTool"],
+    pointerDownState: PointerDownState,
+  ) => void;
+  onPointerUp?: (
     activeTool: AppState["activeTool"],
     pointerDownState: PointerDownState,
   ) => void;
@@ -475,7 +509,7 @@ export type SceneData = {
   elements?: ImportedDataState["elements"];
   appState?: ImportedDataState["appState"];
   collaborators?: Map<SocketId, Collaborator>;
-  commitToHistory?: boolean;
+  storeAction?: StoreActionType;
 };
 
 export enum UserIdleState {
@@ -490,7 +524,6 @@ export type ExportOpts = {
     exportedElements: readonly NonDeletedExcalidrawElement[],
     appState: UIAppState,
     files: BinaryFiles,
-    canvas: HTMLCanvasElement,
   ) => void;
   renderCustomUI?: (
     exportedElements: readonly NonDeletedExcalidrawElement[],
@@ -569,10 +602,13 @@ export type AppClassProperties = {
   addFiles: App["addFiles"];
   addElementsFromPasteOrLibrary: App["addElementsFromPasteOrLibrary"];
   togglePenMode: App["togglePenMode"];
+  toggleLock: App["toggleLock"];
   setActiveTool: App["setActiveTool"];
   setOpenDialog: App["setOpenDialog"];
   insertEmbeddableElement: App["insertEmbeddableElement"];
   onMagicframeToolSelect: App["onMagicframeToolSelect"];
+  getElementShape: App["getElementShape"];
+  getName: App["getName"];
 };
 
 export type PointerDownState = Readonly<{
@@ -633,17 +669,11 @@ export type PointerDownState = Readonly<{
   boxSelection: {
     hasOccurred: boolean;
   };
-  elementIdsToErase: {
-    [key: ExcalidrawElement["id"]]: {
-      opacity: ExcalidrawElement["opacity"];
-      erase: boolean;
-    };
-  };
 }>;
 
-type UnsubscribeCallback = () => void;
+export type UnsubscribeCallback = () => void;
 
-export type ExcalidrawImperativeAPI = {
+export interface ExcalidrawImperativeAPI {
   updateScene: InstanceType<typeof App>["updateScene"];
   updateLibrary: InstanceType<typeof Library>["updateLibrary"];
   resetScene: InstanceType<typeof App>["resetScene"];
@@ -653,10 +683,11 @@ export type ExcalidrawImperativeAPI = {
   history: {
     clear: InstanceType<typeof App>["resetHistory"];
   };
-  scrollToContent: InstanceType<typeof App>["scrollToContent"];
   getSceneElements: InstanceType<typeof App>["getSceneElements"];
   getAppState: () => InstanceType<typeof App>["state"];
   getFiles: () => InstanceType<typeof App>["files"];
+  getName: InstanceType<typeof App>["getName"];
+  scrollToContent: InstanceType<typeof App>["scrollToContent"];
   registerAction: (action: Action) => void;
   refresh: InstanceType<typeof App>["refresh"];
   setToast: InstanceType<typeof App>["setToast"];
@@ -699,7 +730,7 @@ export type ExcalidrawImperativeAPI = {
   onUserFollow: (
     callback: (payload: OnUserFollowedPayload) => void,
   ) => UnsubscribeCallback;
-};
+}
 
 export type Device = Readonly<{
   viewport: {
@@ -713,7 +744,7 @@ export type Device = Readonly<{
   isTouchScreen: boolean;
 }>;
 
-type FrameNameBounds = {
+export type FrameNameBounds = {
   x: number;
   y: number;
   width: number;
@@ -751,3 +782,10 @@ export type Primitive =
   | undefined;
 
 export type JSONValue = string | number | boolean | null | object;
+
+export type EmbedsValidationStatus = Map<
+  ExcalidrawIframeLikeElement["id"],
+  boolean
+>;
+
+export type ElementsPendingErasure = Set<ExcalidrawElement["id"]>;

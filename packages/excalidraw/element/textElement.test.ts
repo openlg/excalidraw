@@ -11,7 +11,7 @@ import {
   getDefaultLineHeight,
   parseTokens,
 } from "./textElement";
-import { ExcalidrawTextElementWithContainer, FontString } from "./types";
+import type { ExcalidrawTextElementWithContainer, FontString } from "./types";
 
 describe("Test wrapText", () => {
   const font = "20px Cascadia, width: Segoe UI Emoji" as FontString;
@@ -319,17 +319,17 @@ describe("Test measureText", () => {
 
     it("should return max width when container is rectangle", () => {
       const container = API.createElement({ type: "rectangle", ...params });
-      expect(getBoundTextMaxWidth(container)).toBe(168);
+      expect(getBoundTextMaxWidth(container, null)).toBe(168);
     });
 
     it("should return max width when container is ellipse", () => {
       const container = API.createElement({ type: "ellipse", ...params });
-      expect(getBoundTextMaxWidth(container)).toBe(116);
+      expect(getBoundTextMaxWidth(container, null)).toBe(116);
     });
 
     it("should return max width when container is diamond", () => {
       const container = API.createElement({ type: "diamond", ...params });
-      expect(getBoundTextMaxWidth(container)).toBe(79);
+      expect(getBoundTextMaxWidth(container, null)).toBe(79);
     });
   });
 

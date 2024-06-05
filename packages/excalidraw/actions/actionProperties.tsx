@@ -1,4 +1,4 @@
-import { AppState, Primitive } from "../types";
+import type { AppClassProperties, AppState, Primitive } from "../types";
 import {
   DEFAULT_ELEMENT_BACKGROUND_COLOR_PALETTE,
   DEFAULT_ELEMENT_BACKGROUND_PICKS,
@@ -49,6 +49,7 @@ import {
   ArrowheadCircleOutlineIcon,
   ArrowheadDiamondIcon,
   ArrowheadDiamondOutlineIcon,
+  fontSizeIcon,
 } from "../components/icons";
 import {
   DEFAULT_FONT_FAMILY,
@@ -66,7 +67,6 @@ import {
 import { mutateElement, newElementWith } from "../element/mutateElement";
 import {
   getBoundTextElement,
-  getContainerElement,
   getDefaultLineHeight,
 } from "../element/textElement";
 import {
@@ -74,7 +74,7 @@ import {
   isLinearElement,
   isUsingAdaptiveRadius,
 } from "../element/typeChecks";
-import {
+import type {
   Arrowhead,
   ExcalidrawElement,
   ExcalidrawLinearElement,
@@ -96,6 +96,7 @@ import {
 import { hasStrokeColor } from "../scene/comparisons";
 import { arrayToMap, getShortcutKey } from "../utils";
 import { register } from "./register";
+import { StoreAction } from "../store";
 
 const FONT_SIZE_RELATIVE_INCREASE_STEP = 0.1;
 
@@ -166,7 +167,7 @@ const offsetElementAfterFontResize = (
   prevElement: ExcalidrawTextElement,
   nextElement: ExcalidrawTextElement,
 ) => {
-  if (isBoundToContainer(nextElement)) {
+  if (isBoundToContainer(nextElement) || !nextElement.autoResize) {
     return nextElement;
   }
   return mutateElement(
@@ -189,6 +190,7 @@ const offsetElementAfterFontResize = (
 const changeFontSize = (
   elements: readonly ExcalidrawElement[],
   appState: AppState,
+  app: AppClassProperties,
   getNewFontSize: (element: ExcalidrawTextElement) => number,
   fallbackValue?: ExcalidrawTextElement["fontSize"],
 ) => {
@@ -206,7 +208,11 @@ const changeFontSize = (
           let newElement: ExcalidrawTextElement = newElementWith(oldElement, {
             fontSize: newFontSize,
           });
-          redrawTextBoundingBox(newElement, getContainerElement(oldElement));
+          redrawTextBoundingBox(
+            newElement,
+            app.scene.getContainerElement(oldElement),
+            app.scene.getNonDeletedElementsMap(),
+          );
 
           newElement = offsetElementAfterFontResize(oldElement, newElement);
 
@@ -226,7 +232,7 @@ const changeFontSize = (
           ? [...newFontSizes][0]
           : fallbackValue ?? appState.currentItemFontSize,
     },
-    commitToHistory: true,
+    storeAction: StoreAction.CAPTURE,
   };
 };
 
@@ -234,6 +240,7 @@ const changeFontSize = (
 
 export const actionChangeStrokeColor = register({
   name: "changeStrokeColor",
+  label: "labels.stroke",
   trackEvent: false,
   perform: (elements, appState, value) => {
     return {
@@ -255,7 +262,9 @@ export const actionChangeStrokeColor = register({
         ...appState,
         ...value,
       },
-      commitToHistory: !!value.currentItemStrokeColor,
+      storeAction: !!value.currentItemStrokeColor
+        ? StoreAction.CAPTURE
+        : StoreAction.NONE,
     };
   },
   PanelComponent: ({ elements, appState, updateData, appProps }) => (
@@ -284,6 +293,7 @@ export const actionChangeStrokeColor = register({
 
 export const actionChangeBackgroundColor = register({
   name: "changeBackgroundColor",
+  label: "labels.changeBackground",
   trackEvent: false,
   perform: (elements, appState, value) => {
     return {
@@ -298,7 +308,9 @@ export const actionChangeBackgroundColor = register({
         ...appState,
         ...value,
       },
-      commitToHistory: !!value.currentItemBackgroundColor,
+      storeAction: !!value.currentItemBackgroundColor
+        ? StoreAction.CAPTURE
+        : StoreAction.NONE,
     };
   },
   PanelComponent: ({ elements, appState, updateData, appProps }) => (
@@ -327,6 +339,7 @@ export const actionChangeBackgroundColor = register({
 
 export const actionChangeFillStyle = register({
   name: "changeFillStyle",
+  label: "labels.fill",
   trackEvent: false,
   perform: (elements, appState, value, app) => {
     trackEvent(
@@ -341,7 +354,7 @@ export const actionChangeFillStyle = register({
         }),
       ),
       appState: { ...appState, currentItemFillStyle: value },
-      commitToHistory: true,
+      storeAction: StoreAction.CAPTURE,
     };
   },
   PanelComponent: ({ elements, appState, updateData }) => {
@@ -404,6 +417,7 @@ export const actionChangeFillStyle = register({
 
 export const actionChangeStrokeWidth = register({
   name: "changeStrokeWidth",
+  label: "labels.strokeWidth",
   trackEvent: false,
   perform: (elements, appState, value) => {
     return {
@@ -413,7 +427,7 @@ export const actionChangeStrokeWidth = register({
         }),
       ),
       appState: { ...appState, currentItemStrokeWidth: value },
-      commitToHistory: true,
+      storeAction: StoreAction.CAPTURE,
     };
   },
   PanelComponent: ({ elements, appState, updateData }) => (
@@ -457,6 +471,7 @@ export const actionChangeStrokeWidth = register({
 
 export const actionChangeSloppiness = register({
   name: "changeSloppiness",
+  label: "labels.sloppiness",
   trackEvent: false,
   perform: (elements, appState, value) => {
     return {
@@ -467,7 +482,7 @@ export const actionChangeSloppiness = register({
         }),
       ),
       appState: { ...appState, currentItemRoughness: value },
-      commitToHistory: true,
+      storeAction: StoreAction.CAPTURE,
     };
   },
   PanelComponent: ({ elements, appState, updateData }) => (
@@ -508,6 +523,7 @@ export const actionChangeSloppiness = register({
 
 export const actionChangeStrokeStyle = register({
   name: "changeStrokeStyle",
+  label: "labels.strokeStyle",
   trackEvent: false,
   perform: (elements, appState, value) => {
     return {
@@ -517,7 +533,7 @@ export const actionChangeStrokeStyle = register({
         }),
       ),
       appState: { ...appState, currentItemStrokeStyle: value },
-      commitToHistory: true,
+      storeAction: StoreAction.CAPTURE,
     };
   },
   PanelComponent: ({ elements, appState, updateData }) => (
@@ -558,6 +574,7 @@ export const actionChangeStrokeStyle = register({
 
 export const actionChangeOpacity = register({
   name: "changeOpacity",
+  label: "labels.opacity",
   trackEvent: false,
   perform: (elements, appState, value) => {
     return {
@@ -571,7 +588,7 @@ export const actionChangeOpacity = register({
         true,
       ),
       appState: { ...appState, currentItemOpacity: value },
-      commitToHistory: true,
+      storeAction: StoreAction.CAPTURE,
     };
   },
   PanelComponent: ({ elements, appState, updateData }) => (
@@ -599,11 +616,12 @@ export const actionChangeOpacity = register({
 
 export const actionChangeFontSize = register({
   name: "changeFontSize",
+  label: "labels.fontSize",
   trackEvent: false,
-  perform: (elements, appState, value) => {
-    return changeFontSize(elements, appState, () => value, value);
+  perform: (elements, appState, value, app) => {
+    return changeFontSize(elements, appState, app, () => value, value);
   },
-  PanelComponent: ({ elements, appState, updateData }) => (
+  PanelComponent: ({ elements, appState, updateData, app }) => (
     <fieldset>
       <legend>{t("labels.fontSize")}</legend>
       <ButtonIconSelect
@@ -641,14 +659,21 @@ export const actionChangeFontSize = register({
             if (isTextElement(element)) {
               return element.fontSize;
             }
-            const boundTextElement = getBoundTextElement(element);
+            const boundTextElement = getBoundTextElement(
+              element,
+              app.scene.getNonDeletedElementsMap(),
+            );
             if (boundTextElement) {
               return boundTextElement.fontSize;
             }
             return null;
           },
           (element) =>
-            isTextElement(element) || getBoundTextElement(element) !== null,
+            isTextElement(element) ||
+            getBoundTextElement(
+              element,
+              app.scene.getNonDeletedElementsMap(),
+            ) !== null,
           (hasSelection) =>
             hasSelection
               ? null
@@ -662,9 +687,11 @@ export const actionChangeFontSize = register({
 
 export const actionDecreaseFontSize = register({
   name: "decreaseFontSize",
+  label: "labels.decreaseFontSize",
+  icon: fontSizeIcon,
   trackEvent: false,
-  perform: (elements, appState, value) => {
-    return changeFontSize(elements, appState, (element) =>
+  perform: (elements, appState, value, app) => {
+    return changeFontSize(elements, appState, app, (element) =>
       Math.round(
         // get previous value before relative increase (doesn't work fully
         // due to rounding and float precision issues)
@@ -684,9 +711,11 @@ export const actionDecreaseFontSize = register({
 
 export const actionIncreaseFontSize = register({
   name: "increaseFontSize",
+  label: "labels.increaseFontSize",
+  icon: fontSizeIcon,
   trackEvent: false,
-  perform: (elements, appState, value) => {
-    return changeFontSize(elements, appState, (element) =>
+  perform: (elements, appState, value, app) => {
+    return changeFontSize(elements, appState, app, (element) =>
       Math.round(element.fontSize * (1 + FONT_SIZE_RELATIVE_INCREASE_STEP)),
     );
   },
@@ -702,8 +731,9 @@ export const actionIncreaseFontSize = register({
 
 export const actionChangeFontFamily = register({
   name: "changeFontFamily",
+  label: "labels.fontFamily",
   trackEvent: false,
-  perform: (elements, appState, value) => {
+  perform: (elements, appState, value, app) => {
     return {
       elements: changeProperty(
         elements,
@@ -717,7 +747,11 @@ export const actionChangeFontFamily = register({
                 lineHeight: getDefaultLineHeight(value),
               },
             );
-            redrawTextBoundingBox(newElement, getContainerElement(oldElement));
+            redrawTextBoundingBox(
+              newElement,
+              app.scene.getContainerElement(oldElement),
+              app.scene.getNonDeletedElementsMap(),
+            );
             return newElement;
           }
 
@@ -729,10 +763,10 @@ export const actionChangeFontFamily = register({
         ...appState,
         currentItemFontFamily: value,
       },
-      commitToHistory: true,
+      storeAction: StoreAction.CAPTURE,
     };
   },
-  PanelComponent: ({ elements, appState, updateData }) => {
+  PanelComponent: ({ elements, appState, updateData, app }) => {
     const options: {
       value: FontFamilyValues;
       text: string;
@@ -772,14 +806,21 @@ export const actionChangeFontFamily = register({
               if (isTextElement(element)) {
                 return element.fontFamily;
               }
-              const boundTextElement = getBoundTextElement(element);
+              const boundTextElement = getBoundTextElement(
+                element,
+                app.scene.getNonDeletedElementsMap(),
+              );
               if (boundTextElement) {
                 return boundTextElement.fontFamily;
               }
               return null;
             },
             (element) =>
-              isTextElement(element) || getBoundTextElement(element) !== null,
+              isTextElement(element) ||
+              getBoundTextElement(
+                element,
+                app.scene.getNonDeletedElementsMap(),
+              ) !== null,
             (hasSelection) =>
               hasSelection
                 ? null
@@ -794,8 +835,9 @@ export const actionChangeFontFamily = register({
 
 export const actionChangeTextAlign = register({
   name: "changeTextAlign",
+  label: "Change text alignment",
   trackEvent: false,
-  perform: (elements, appState, value) => {
+  perform: (elements, appState, value, app) => {
     return {
       elements: changeProperty(
         elements,
@@ -806,7 +848,11 @@ export const actionChangeTextAlign = register({
               oldElement,
               { textAlign: value },
             );
-            redrawTextBoundingBox(newElement, getContainerElement(oldElement));
+            redrawTextBoundingBox(
+              newElement,
+              app.scene.getContainerElement(oldElement),
+              app.scene.getNonDeletedElementsMap(),
+            );
             return newElement;
           }
 
@@ -818,10 +864,11 @@ export const actionChangeTextAlign = register({
         ...appState,
         currentItemTextAlign: value,
       },
-      commitToHistory: true,
+      storeAction: StoreAction.CAPTURE,
     };
   },
-  PanelComponent: ({ elements, appState, updateData }) => {
+  PanelComponent: ({ elements, appState, updateData, app }) => {
+    const elementsMap = app.scene.getNonDeletedElementsMap();
     return (
       <fieldset>
         <legend>{t("labels.textAlign")}</legend>
@@ -854,14 +901,18 @@ export const actionChangeTextAlign = register({
               if (isTextElement(element)) {
                 return element.textAlign;
               }
-              const boundTextElement = getBoundTextElement(element);
+              const boundTextElement = getBoundTextElement(
+                element,
+                elementsMap,
+              );
               if (boundTextElement) {
                 return boundTextElement.textAlign;
               }
               return null;
             },
             (element) =>
-              isTextElement(element) || getBoundTextElement(element) !== null,
+              isTextElement(element) ||
+              getBoundTextElement(element, elementsMap) !== null,
             (hasSelection) =>
               hasSelection ? null : appState.currentItemTextAlign,
           )}
@@ -874,8 +925,9 @@ export const actionChangeTextAlign = register({
 
 export const actionChangeVerticalAlign = register({
   name: "changeVerticalAlign",
+  label: "Change vertical alignment",
   trackEvent: { category: "element" },
-  perform: (elements, appState, value) => {
+  perform: (elements, appState, value, app) => {
     return {
       elements: changeProperty(
         elements,
@@ -887,7 +939,11 @@ export const actionChangeVerticalAlign = register({
               { verticalAlign: value },
             );
 
-            redrawTextBoundingBox(newElement, getContainerElement(oldElement));
+            redrawTextBoundingBox(
+              newElement,
+              app.scene.getContainerElement(oldElement),
+              app.scene.getNonDeletedElementsMap(),
+            );
             return newElement;
           }
 
@@ -898,10 +954,10 @@ export const actionChangeVerticalAlign = register({
       appState: {
         ...appState,
       },
-      commitToHistory: true,
+      storeAction: StoreAction.CAPTURE,
     };
   },
-  PanelComponent: ({ elements, appState, updateData }) => {
+  PanelComponent: ({ elements, appState, updateData, app }) => {
     return (
       <fieldset>
         <ButtonIconSelect<VerticalAlign | false>
@@ -933,14 +989,21 @@ export const actionChangeVerticalAlign = register({
               if (isTextElement(element) && element.containerId) {
                 return element.verticalAlign;
               }
-              const boundTextElement = getBoundTextElement(element);
+              const boundTextElement = getBoundTextElement(
+                element,
+                app.scene.getNonDeletedElementsMap(),
+              );
               if (boundTextElement) {
                 return boundTextElement.verticalAlign;
               }
               return null;
             },
             (element) =>
-              isTextElement(element) || getBoundTextElement(element) !== null,
+              isTextElement(element) ||
+              getBoundTextElement(
+                element,
+                app.scene.getNonDeletedElementsMap(),
+              ) !== null,
             (hasSelection) => (hasSelection ? null : VERTICAL_ALIGN.MIDDLE),
           )}
           onChange={(value) => updateData(value)}
@@ -952,6 +1015,7 @@ export const actionChangeVerticalAlign = register({
 
 export const actionChangeRoundness = register({
   name: "changeRoundness",
+  label: "Change edge roundness",
   trackEvent: false,
   perform: (elements, appState, value) => {
     return {
@@ -971,7 +1035,7 @@ export const actionChangeRoundness = register({
         ...appState,
         currentItemRoundness: value,
       },
-      commitToHistory: true,
+      storeAction: StoreAction.CAPTURE,
     };
   },
   PanelComponent: ({ elements, appState, updateData }) => {
@@ -1090,6 +1154,7 @@ const getArrowheadOptions = (flip: boolean) => {
 
 export const actionChangeArrowhead = register({
   name: "changeArrowhead",
+  label: "Change arrowheads",
   trackEvent: false,
   perform: (
     elements,
@@ -1122,7 +1187,7 @@ export const actionChangeArrowhead = register({
           ? "currentItemStartArrowhead"
           : "currentItemEndArrowhead"]: value.type,
       },
-      commitToHistory: true,
+      storeAction: StoreAction.CAPTURE,
     };
   },
   PanelComponent: ({ elements, appState, updateData }) => {

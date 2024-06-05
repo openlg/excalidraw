@@ -1,6 +1,9 @@
 name: Tests
 
-on: pull_request
+on:
+  pull_request:
+  push:
+    branches: master
 
 jobs:
   test:
@@ -13,5 +16,5 @@ jobs:
           node-version: 18.x
       - name: Install and test
         run: |
-          yarn install:deps
+          yarn install
           yarn test:app

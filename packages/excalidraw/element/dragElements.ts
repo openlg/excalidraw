@@ -1,18 +1,20 @@
 import { updateBoundElements } from "./binding";
-import { Bounds, getCommonBounds } from "./bounds";
+import type { Bounds } from "./bounds";
+import { getCommonBounds } from "./bounds";
 import { mutateElement } from "./mutateElement";
 import { getPerfectElementSize } from "./sizeHelpers";
-import { NonDeletedExcalidrawElement } from "./types";
-import { AppState, PointerDownState } from "../types";
-import { getBoundTextElement } from "./textElement";
-import { isSelectedViaGroup } from "../groups";
+import type { NonDeletedExcalidrawElement } from "./types";
+import type { AppState, NormalizedZoomValue, PointerDownState } from "../types";
+import { getBoundTextElement, getMinTextElementWidth } from "./textElement";
 import { getGridPoint } from "../math";
-import Scene from "../scene/Scene";
+import type Scene from "../scene/Scene";
 import {
   isArrowElement,
-  isBoundToContainer,
   isFrameLikeElement,
+  isTextElement,
 } from "./typeChecks";
+import { getFontString } from "../utils";
+import { TEXT_AUTOWRAP_THRESHOLD } from "../constants";
 
 export const dragSelectedElements = (
   pointerDownState: PointerDownState,
@@ -37,13 +39,11 @@ export const dragSelectedElements = (
     .map((f) => f.id);
 
   if (frames.length > 0) {
-    const elementsInFrames = scene
-      .getNonDeletedElements()
-      .filter((e) => !isBoundToContainer(e))
-      .filter((e) => e.frameId !== null)
-      .filter((e) => frames.includes(e.frameId!));
-
-    elementsInFrames.forEach((element) => elementsToUpdate.add(element));
+    for (const element of scene.getNonDeletedElements()) {
+      if (element.frameId !== null && frames.includes(element.frameId)) {
+        elementsToUpdate.add(element);
+      }
+    }
   }
 
   const commonBounds = getCommonBounds(
@@ -60,23 +60,19 @@ export const dragSelectedElements = (
 
   elementsToUpdate.forEach((element) => {
     updateElementCoords(pointerDownState, element, adjustedOffset);
-    // update coords of bound text only if we're dragging the container directly
-    // (we don't drag the group that it's part of)
     if (
-      // Don't update coords of arrow label since we calculate its position during render
-      !isArrowElement(element) &&
-      // container isn't part of any group
-      // (perf optim so we don't check `isSelectedViaGroup()` in every case)
-      (!element.groupIds.length ||
-        // container is part of a group, but we're dragging the container directly
-        (appState.editingGroupId && !isSelectedViaGroup(appState, element)))
+      // skip arrow labels since we calculate its position during render
+      !isArrowElement(element)
     ) {
-      const textElement = getBoundTextElement(element);
+      const textElement = getBoundTextElement(
+        element,
+        scene.getNonDeletedElementsMap(),
+      );
       if (textElement) {
         updateElementCoords(pointerDownState, textElement, adjustedOffset);
       }
     }
-    updateBoundElements(element, {
+    updateBoundElements(element, scene.getElementsMapIncludingDeleted(), {
       simultaneouslyUpdated: Array.from(elementsToUpdate),
     });
   });
@@ -150,6 +146,7 @@ export const dragNewElement = (
   height: number,
   shouldMaintainAspectRatio: boolean,
   shouldResizeFromCenter: boolean,
+  zoom: NormalizedZoomValue,
   /** whether to keep given aspect ratio when `isResizeWithSidesSameLength` is
       true */
   widthAspectRatio?: number | null,
@@ -195,12 +192,41 @@ export const dragNewElement = (
     newY = originY - height / 2;
   }
 
+  let textAutoResize = null;
+
+  // NOTE this should apply only to creating text elements, not existing
+  // (once we rewrite appState.draggingElement to actually mean dragging
+  // elements)
+  if (isTextElement(draggingElement)) {
+    height = draggingElement.height;
+    const minWidth = getMinTextElementWidth(
+      getFontString({
+        fontSize: draggingElement.fontSize,
+        fontFamily: draggingElement.fontFamily,
+      }),
+      draggingElement.lineHeight,
+    );
+    width = Math.max(width, minWidth);
+
+    if (Math.abs(x - originX) > TEXT_AUTOWRAP_THRESHOLD / zoom) {
+      textAutoResize = {
+        autoResize: false,
+      };
+    }
+
+    newY = originY;
+    if (shouldResizeFromCenter) {
+      newX = originX - width / 2;
+    }
+  }
+
   if (width !== 0 && height !== 0) {
     mutateElement(draggingElement, {
       x: newX + (originOffset?.x ?? 0),
       y: newY + (originOffset?.y ?? 0),
       width,
       height,
+      ...textAutoResize,
     });
   }
 };

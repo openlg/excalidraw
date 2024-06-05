@@ -1,8 +1,7 @@
 import cssVariables from "./css/variables.module.scss";
-import { AppProps } from "./types";
-import { ExcalidrawElement, FontFamilyValues } from "./element/types";
+import type { AppProps } from "./types";
+import type { ExcalidrawElement, FontFamilyValues } from "./element/types";
 import { COLOR_PALETTE } from "./colors";
-
 export const isDarwin = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
 export const isWindows = /^Win/.test(navigator.platform);
 export const isAndroid = /\b(android)\b/i.test(navigator.userAgent);
@@ -13,18 +12,31 @@ export const isFirefox =
 export const isChrome = navigator.userAgent.indexOf("Chrome") !== -1;
 export const isSafari =
   !isChrome && navigator.userAgent.indexOf("Safari") !== -1;
+export const isIOS =
+  /iPad|iPhone/.test(navigator.platform) ||
+  // iPadOS 13+
+  (navigator.userAgent.includes("Mac") && "ontouchend" in document);
 // keeping function so it can be mocked in test
 export const isBrave = () =>
   (navigator as any).brave?.isBrave?.name === "isBrave";
 
+export const supportsResizeObserver =
+  typeof window !== "undefined" && "ResizeObserver" in window;
+
 export const APP_NAME = "Excalidraw";
 
+// distance when creating text before it's considered `autoResize: false`
+// we're using higher threshold so that clicks that end up being drags
+// don't unintentionally create text elements that are wrapped to a few chars
+// (happens a lot with fast clicks with the text tool)
+export const TEXT_AUTOWRAP_THRESHOLD = 36; // px
 export const DRAGGING_THRESHOLD = 10; // px
 export const LINE_CONFIRM_THRESHOLD = 8; // px
 export const ELEMENT_SHIFT_TRANSLATE_AMOUNT = 5;
 export const ELEMENT_TRANSLATE_AMOUNT = 1;
 export const TEXT_TO_CENTER_SNAP_THRESHOLD = 30;
 export const SHIFT_LOCKING_ANGLE = Math.PI / 12;
+export const DEFAULT_LASER_COLOR = "red";
 export const CURSOR_TYPE = {
   TEXT: "text",
   CROSSHAIR: "crosshair",
@@ -39,6 +51,7 @@ export const POINTER_BUTTON = {
   WHEEL: 1,
   SECONDARY: 2,
   TOUCH: -1,
+  ERASER: 5,
 } as const;
 
 export const POINTER_EVENTS = {
@@ -153,6 +166,19 @@ export const DEFAULT_FONT_FAMILY: FontFamilyValues = FONT_FAMILY.Virgil;
 export const DEFAULT_TEXT_ALIGN = "left";
 export const DEFAULT_VERTICAL_ALIGN = "top";
 export const DEFAULT_VERSION = "{version}";
+export const DEFAULT_TRANSFORM_HANDLE_SPACING = 2;
+
+export const SIDE_RESIZING_THRESHOLD = 2 * DEFAULT_TRANSFORM_HANDLE_SPACING;
+// a small epsilon to make side resizing always take precedence
+// (avoids an increase in renders and changes to tests)
+const EPSILON = 0.00001;
+export const DEFAULT_COLLISION_THRESHOLD =
+  2 * SIDE_RESIZING_THRESHOLD - EPSILON;
+
+export const COLOR_WHITE = "#ffffff";
+export const COLOR_CHARCOAL_BLACK = "#1e1e1e";
+// keep this in sync with CSS
+export const COLOR_VOICE_CALL = "#a2f1a6";
 
 export const CANVAS_ONLY_ACTIONS = ["selectAll"];
 
@@ -211,6 +237,7 @@ export const VERSION_TIMEOUT = 30000;
 export const SCROLL_TIMEOUT = 100;
 export const ZOOM_STEP = 0.1;
 export const MIN_ZOOM = 0.1;
+export const MAX_ZOOM = 30.0;
 export const HYPERLINK_TOOLTIP_DELAY = 300;
 
 // Report a user inactive after IDLE_THRESHOLD milliseconds
@@ -317,10 +344,6 @@ export const ROUNDNESS = {
   ADAPTIVE_RADIUS: 3,
 } as const;
 
-/** key containt id of precedeing elemnt id we use in reconciliation during
- * collaboration */
-export const PRECEDING_ELEMENT_KEY = "__precedingElement__";
-
 export const ROUGHNESS = {
   architect: 0,
   artist: 1,
@@ -391,3 +414,9 @@ export const EDITOR_LS_KEYS = {
   MERMAID_TO_EXCALIDRAW: "mermaid-to-excalidraw",
   PUBLISH_LIBRARY: "publish-library-data",
 } as const;
+
+/**
+ * not translated as this is used only in public, stateless API as default value
+ * where filename is optional and we can't retrieve name from app state
+ */
+export const DEFAULT_FILENAME = "Untitled";

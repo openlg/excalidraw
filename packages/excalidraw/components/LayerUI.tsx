@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import React from "react";
-import { ActionManager } from "../actions/manager";
+import type { ActionManager } from "../actions/manager";
 import {
   CLASSES,
   DEFAULT_SIDEBAR,
@@ -8,10 +8,11 @@ import {
   TOOL_TYPE,
 } from "../constants";
 import { showSelectedShapeActions } from "../element";
-import { NonDeletedExcalidrawElement } from "../element/types";
-import { Language, t } from "../i18n";
+import type { NonDeletedExcalidrawElement } from "../element/types";
+import type { Language } from "../i18n";
+import { t } from "../i18n";
 import { calculateScrollCenter } from "../scene";
-import {
+import type {
   AppProps,
   AppState,
   ExcalidrawProps,
@@ -60,7 +61,7 @@ import "./Toolbar.scss";
 import { mutateElement } from "../element/mutateElement";
 import { ShapeCache } from "../scene/ShapeCache";
 import Scene from "../scene/Scene";
-import { LaserPointerButton } from "./LaserTool/LaserPointerButton";
+import { LaserPointerButton } from "./LaserPointerButton";
 import { MagicSettings } from "./MagicSettings";
 import { TTDDialog } from "./TTDDialog/TTDDialog";
 
@@ -195,6 +196,7 @@ const LayerUI = ({
         actionManager={actionManager}
         onExportImage={onExportImage}
         onCloseRequest={() => setAppState({ openDialog: null })}
+        name={app.getName()}
       />
     );
   };
@@ -226,7 +228,7 @@ const LayerUI = ({
       >
         <SelectedShapeActions
           appState={appState}
-          elements={elements}
+          elementsMap={app.scene.getNonDeletedElementsMap()}
           renderAction={actionManager.renderAction}
         />
       </Island>
@@ -442,7 +444,7 @@ const LayerUI = ({
                 );
                 ShapeCache.delete(element);
               }
-              Scene.getScene(selectedElements[0])?.informMutation();
+              Scene.getScene(selectedElements[0])?.triggerUpdate();
             } else if (colorPickerType === "elementBackground") {
               setAppState({
                 currentItemBackgroundColor: color,
@@ -553,6 +555,7 @@ const LayerUI = ({
             )}
             {appState.scrolledOutside && (
               <button
+                type="button"
                 className="scroll-back-to-content"
                 onClick={() => {
                   setAppState((appState) => ({
